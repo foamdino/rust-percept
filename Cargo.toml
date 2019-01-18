@@ -1,0 +1,10 @@
+[package]
+name = "percept"
+version = "0.1.0"
+authors = ["Kevin Jackson <kevin.jackson@thehutgroup.com>"]
+
+[dependencies]
+csv = "1"
+rand = "0.3"
+serde = "1.0"
+serde_derive = "1.0"
