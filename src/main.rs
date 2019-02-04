@@ -12,7 +12,7 @@ use rand::sample;
 
 #[derive(Debug, Deserialize, Serialize)]
 struct Record {
-    data: Vec<f32>,
+    data: Vec<f64>,
     class: String
 }
 
@@ -39,10 +39,10 @@ fn load_csv(filename: &str) -> Result<Vec<Record>, Box<Error>> {
     return Ok(records);
 }
 
-fn string_record_to_float_vec(string_record: &csv::StringRecord) -> Result<Vec<f32>, Box<Error>> {
-    let results: Vec<f32> = string_record.iter()
-        .filter(|x| x.parse::<f32>().is_ok())
-        .map(|x| x.parse::<f32>().unwrap()) // safe here as we filter out bad values previously
+fn string_record_to_float_vec(string_record: &csv::StringRecord) -> Result<Vec<f64>, Box<Error>> {
+    let results: Vec<f64> = string_record.iter()
+        .filter(|x| x.parse::<f64>().is_ok())
+        .map(|x| x.parse::<f64>().unwrap()) // safe here as we filter out bad values previously
         .collect();
 
     return Ok(results);
@@ -52,7 +52,7 @@ fn records_to_classes(records: &Vec<&Record>) -> Vec<String> {
     records.iter().map(|r| r.class.to_owned()).collect()
 }
 
-fn class_to_float(class: &str) -> f32 {
+fn class_to_float(class: &str) -> f64 {
     if class == "R" {
         0.0
     } else {
@@ -61,10 +61,10 @@ fn class_to_float(class: &str) -> f32 {
 }
 
 // algorithmic code
-fn accuracy(actual: Vec<String>, predicted: Vec<&str>) -> f32 {
+fn accuracy(actual: Vec<String>, predicted: Vec<&str>) -> f64 {
     let correct =
         actual.iter().zip(predicted.iter()).filter(|&(a, b)| a == b).count();
-    correct as f32 / actual.len() as f32 * 100.0
+    correct as f64 / actual.len() as f64 * 100.0
 }
 
 // split dataset into k-folds
@@ -80,7 +80,7 @@ fn cross_validation_split(dataset: &Vec<Record>, n_folds: i32) -> Vec<Vec<&Recor
     datasets
 }
 
-fn perceptron(train: &Vec<Record>, test: &Vec<Record>, l_rate: f32, n_epoch: i32) -> Vec<f32> {
+fn perceptron(train: &Vec<Record>, test: &Vec<Record>, l_rate: f64, n_epoch: i32) -> Vec<f64> {
     let weights = train_weights(train, l_rate, n_epoch);
     let predictions = test
         .iter()
@@ -90,7 +90,7 @@ fn perceptron(train: &Vec<Record>, test: &Vec<Record>, l_rate: f32, n_epoch: i32
     predictions
 }
 
-fn evaluate(dataset: &Vec<Record>, n_folds: i32, l_rate: f32, n_epoch: i32) -> Vec<f32> {
+fn evaluate(dataset: &Vec<Record>, n_folds: i32, l_rate: f64, n_epoch: i32) -> Vec<f64> {
     let folds = cross_validation_split(dataset, n_folds);
     let mut scores = Vec::new();
 
@@ -112,7 +112,7 @@ fn evaluate(dataset: &Vec<Record>, n_folds: i32, l_rate: f32, n_epoch: i32) -> V
         let results = perceptron(&ts, &test, l_rate, n_epoch);
         //println!("results: {:?}", results);
         let predictions: Vec<&str> = results.iter().map(|r|{
-            if r.to_owned() == 0.0 as f32 {
+            if r.to_owned() == 0.0 as f64 {
                 "R"
             } else {
                 "M"
@@ -125,7 +125,7 @@ fn evaluate(dataset: &Vec<Record>, n_folds: i32, l_rate: f32, n_epoch: i32) -> V
     return scores;
 }
 
-fn predict(row: &Vec<f32>, weights: &Vec<f32>) -> f32 {
+fn predict(row: &Vec<f64>, weights: &Vec<f64>) -> f64 {
     let mut activation = weights[0];
     let size = weights.capacity();
 
@@ -140,7 +140,7 @@ fn predict(row: &Vec<f32>, weights: &Vec<f32>) -> f32 {
     }
 }
 
-fn train_weights(train: &Vec<Record>, l_rate: f32, n_epoch: i32) -> Vec<f32> {
+fn train_weights(train: &Vec<Record>, l_rate: f64, n_epoch: i32) -> Vec<f64> {
     let mut weights = vec![0.0; train[0].data.capacity()+1];
     for epoch in 1..n_epoch {
         let mut sum_err = 0.0;
@@ -163,8 +163,8 @@ fn main() {
     let records = load_csv("sonar.all-data.csv").unwrap();
     let scores = evaluate(&records, 3, 0.01, 500);
     println!("Scores: {:?}", scores);
-    let sum: f32 = scores.iter().sum();
-    let mean: f32 = sum / scores.len() as f32;
+    let sum: f64 = scores.iter().sum();
+    let mean: f64 = sum / scores.len() as f64;
     println!("Accuracy: {:?}", mean);
 }
 
@@ -173,7 +173,7 @@ fn main() {
 mod tests {
     use super::*;
 
-    fn records_to_float_vecs(records: &Vec<Record>) -> Vec<Vec<f32>> {
+    fn records_to_float_vecs(records: &Vec<Record>) -> Vec<Vec<f64>> {
         records.iter().map(|f| f.data.clone()).collect()
     }
 
@@ -277,11 +277,11 @@ mod tests {
         let converted = records_to_float_vecs(&dataset);
         //println!("{:?}", converted.get(0).unwrap());
         let first_item = converted.get(0).unwrap().get(0).unwrap();
-        let expected_first = 2.7810836 as f32;
+        let expected_first = 2.7810836 as f64;
         assert_eq!(&expected_first, first_item);
 
         let second_item = converted.get(0).unwrap().get(1).unwrap();
-        let expected_second = 2.550537 as f32;
+        let expected_second = 2.550537 as f64;
         assert_eq!(&expected_second, second_item);
     }
 
@@ -291,7 +291,7 @@ mod tests {
             Record{data: vec![2.7810836,2.550537003], class: "R".to_owned()},
             Record{data: vec![7.673756466,3.508563011], class: "M".to_owned()}
         ];
-        let l_rate = 0.01 as f32;
+        let l_rate = 0.01 as f64;
         let n_epoch = 50;
         let results= perceptron(&dataset, &dataset, l_rate, n_epoch);
         println!("{:?}", results)
