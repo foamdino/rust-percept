@@ -6,8 +6,9 @@ extern crate serde_derive;
 
 use std::error::Error;
 use std::fs::File;
-use rand::thread_rng;
 use rand::sample;
+use rand::SeedableRng;
+use rand::StdRng;
 //use rand::seq::SliceRandom;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -69,7 +70,8 @@ fn accuracy(actual: Vec<String>, predicted: Vec<&str>) -> f64 {
 
 // split dataset into k-folds
 fn cross_validation_split(dataset: &Vec<Record>, n_folds: i32) -> Vec<Vec<&Record>>  {
-    let mut rng = thread_rng();
+    let seed: &[_] = &[1];
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
     let sample_size = dataset.len() as i32 / n_folds;
 
     let datasets = (1..).take(n_folds as usize).map(|_|{
@@ -96,7 +98,6 @@ fn evaluate(dataset: &Vec<Record>, n_folds: i32, l_rate: f64, n_epoch: i32) -> V
 
     for (i,fold) in folds.iter().enumerate() {
         let mut train_set = folds.clone();
-        let test_set = folds.clone();
         train_set.remove(i); // remove this fold from the training set
 
         let ts: Vec<Record> = train_set
@@ -104,13 +105,12 @@ fn evaluate(dataset: &Vec<Record>, n_folds: i32, l_rate: f64, n_epoch: i32) -> V
             .flat_map(|v| v.iter().map(|x| Record{data: x.data.clone(), class: x.class.to_owned()}))
             .collect();
 
-        let test: Vec<Record> = test_set
+        let test: Vec<Record> = folds.clone()
             .iter()
             .flat_map(|v| v.iter().map(|x| Record{data: x.data.clone(), class: x.class.to_owned()}))
             .collect();
 
         let results = perceptron(&ts, &test, l_rate, n_epoch);
-        //println!("results: {:?}", results);
         let predictions: Vec<&str> = results.iter().map(|r|{
             if r.to_owned() == 0.0 as f64 {
                 "R"
@@ -127,9 +127,7 @@ fn evaluate(dataset: &Vec<Record>, n_folds: i32, l_rate: f64, n_epoch: i32) -> V
 
 fn predict(row: &Vec<f64>, weights: &Vec<f64>) -> f64 {
     let mut activation = weights[0];
-    let size = weights.capacity();
-
-    for i in 0..(size-1) {
+    for i in 0..(weights.capacity()-1) {
         activation += weights[i+1] * row[i];
     }
 
@@ -142,21 +140,21 @@ fn predict(row: &Vec<f64>, weights: &Vec<f64>) -> f64 {
 
 fn train_weights(train: &Vec<Record>, l_rate: f64, n_epoch: i32) -> Vec<f64> {
     let mut weights = vec![0.0; train[0].data.capacity()+1];
-    for epoch in 1..n_epoch {
+    for epoch in 0..n_epoch {
         let mut sum_err = 0.0;
         for row in train {
             let p = predict(&row.data, &weights);
             let cls = class_to_float(&row.class);
             let mut err = cls - p;
             sum_err += err.powf(2.0);
-            weights[0] += l_rate * err;
+            weights[0] = weights[0] + l_rate * err;
             for i in 0..(row.data.len()) {
-                weights[i + 1] += l_rate * err * row.data[i]
+                weights[i + 1] = weights[i + 1] + l_rate * err * row.data[i]
             }
         }
-        println!(">epoch: {}, weights: {:?}, lrate: {}, err: {}", epoch, weights, l_rate, sum_err);
+        //println!(">epoch: {}, weights: {:?}, lrate: {}, err: {}", epoch, weights, l_rate, sum_err);
     }
-    weights
+    weights.clone()
 }
 
 fn main() {
@@ -225,7 +223,7 @@ mod tests {
 
         let weights = train_weights(&dataset, 0.1, 5);
         println!("weights > {:?}", weights);
-        assert_eq!([-0.1, 0.20653641, -0.23418123].to_vec(), weights)
+        assert_eq!([-0.1, 0.20653640140000007, -0.23418117710000003].to_vec(), weights)
     }
 
     #[test]
@@ -238,6 +236,7 @@ mod tests {
     #[test]
     fn test_load_csv() {
         let records = load_csv("sonar.all-data.csv").unwrap();
+        println!("{:#?}", records);
         assert_eq!(records.get(1).unwrap(), &Record{data:vec![0.0262], class:"R".to_owned()});
     }
 
@@ -265,7 +264,9 @@ mod tests {
             Record{data: vec![1.38807019,1.850220317,0.0], class: "M".to_owned()}
         ];
 
-        cross_validation_split(&dataset, 2);
+        let folds = cross_validation_split(&dataset, 2);
+        println!("{:?}", folds);
+        assert_eq!(2, folds.capacity())
     }
 
     #[test]
@@ -292,7 +293,7 @@ mod tests {
             Record{data: vec![7.673756466,3.508563011], class: "M".to_owned()}
         ];
         let l_rate = 0.01 as f64;
-        let n_epoch = 50;
+        let n_epoch = 10;
         let results= perceptron(&dataset, &dataset, l_rate, n_epoch);
         println!("{:?}", results)
     }
